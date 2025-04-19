@@ -1,2 +1,6 @@
 *.o
 *.ppm
+*.zip
+*.data
+*.old
+checker
