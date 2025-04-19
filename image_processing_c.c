@@ -57,81 +57,89 @@ PPMImage *convertToPPPMImage(AccurateImage *imageIn)
 	return imageOut;
 }
 
-// blur one color channel
+/// Blurs all color channels of an image
 void blurIteration(AccurateImage *imageOut, AccurateImage *imageIn, int size)
 {
-
-	AccuratePixel *kernelIntermediate = malloc(sizeof(AccuratePixel) * imageIn->x * imageIn->y);
-	if (kernelIntermediate == NULL)
+	AccuratePixel *summedAreaTable = malloc(sizeof(AccuratePixel) * imageIn->x * imageIn->y);
+	if (summedAreaTable == NULL)
 	{
-		fprintf(stderr, "Error allocating memory for kernelIntermediate\n");
+		fprintf(stderr, "Error allocating memory for summedAreaTable\n");
 		exit(1);
 	}
 
-	// Horizontal blur pass
+	// Compute summed area table
 	for (int y = 0; y < imageIn->y; y++)
 	{
 		for (int x = 0; x < imageIn->x; x++)
 		{
-			// Discard edges if kernel does not fit
-			int start_x = (x - size < 0) ? 0 : x - size;
-			int end_x = (x + size >= imageIn->x) ? imageIn->x - 1 : x + size;
-			double sum_red = 0.0;
-			double sum_green = 0.0;
-			double sum_blue = 0.0;
-
-			// Sum pixel values in the horizontal window
-			for (int currentX = start_x; currentX <= end_x; currentX++)
-			{
-				int offset = y * imageIn->x + currentX;
-
-				sum_red += imageIn->data[offset].red;
-				sum_green += imageIn->data[offset].green;
-				sum_blue += imageIn->data[offset].blue;
-			}
-
-			// Compute average and store in intermediate array
-			int count = end_x - start_x + 1;
 			int offset = y * imageIn->x + x;
+			summedAreaTable[offset].red = imageIn->data[offset].red;
+			summedAreaTable[offset].green = imageIn->data[offset].green;
+			summedAreaTable[offset].blue = imageIn->data[offset].blue;
 
-			kernelIntermediate[offset].red = sum_red / count;
-			kernelIntermediate[offset].green = sum_green / count;
-			kernelIntermediate[offset].blue = sum_blue / count;
+			if (x > 0)
+			{
+				summedAreaTable[offset].red += summedAreaTable[offset - 1].red;
+				summedAreaTable[offset].green += summedAreaTable[offset - 1].green;
+				summedAreaTable[offset].blue += summedAreaTable[offset - 1].blue;
+			}
+			if (y > 0)
+			{
+				summedAreaTable[offset].red += summedAreaTable[offset - imageIn->x].red;
+				summedAreaTable[offset].green += summedAreaTable[offset - imageIn->x].green;
+				summedAreaTable[offset].blue += summedAreaTable[offset - imageIn->x].blue;
+			}
+			if (x > 0 && y > 0)
+			{
+				summedAreaTable[offset].red -= summedAreaTable[offset - imageIn->x - 1].red;
+				summedAreaTable[offset].green -= summedAreaTable[offset - imageIn->x - 1].green;
+				summedAreaTable[offset].blue -= summedAreaTable[offset - imageIn->x - 1].blue;
+			}
 		}
 	}
 
-	// Vertical blur pass
-	for (int x = 0; x < imageIn->x; x++)
+	// Compute output using summedAreaTable
+	for (int y = 0; y < imageIn->y; y++)
 	{
-		for (int y = 0; y < imageIn->y; y++)
+		for (int x = 0; x < imageIn->x; x++)
 		{
-			// Discard edges if kernel does not fit
-			int start_y = (y - size < 0) ? 0 : y - size;
-			int end_y = (y + size >= imageIn->y) ? imageIn->y - 1 : y + size;
-			double sum_red = 0.0;
-			double sum_green = 0.0;
-			double sum_blue = 0.0;
+			int x_start = (x - size < 0) ? 0 : x - size;
+			int x_end = (x + size >= imageIn->x) ? imageIn->x - 1 : x + size;
+			int y_start = (y - size < 0) ? 0 : y - size;
+			int y_end = (y + size >= imageIn->y) ? imageIn->y - 1 : y + size;
 
-			// Sum pixel values in the vertical window from kernelIntermediate array
-			for (int currentY = start_y; currentY <= end_y; currentY++)
+			double sum_red = summedAreaTable[y_end * imageIn->x + x_end].red;
+			double sum_green = summedAreaTable[y_end * imageIn->x + x_end].green;
+			double sum_blue = summedAreaTable[y_end * imageIn->x + x_end].blue;
+
+			if (x_start > 0)
 			{
-				int offset = currentY * imageIn->x + x;
-				sum_red += kernelIntermediate[offset].red;
-				sum_green += kernelIntermediate[offset].green;
-				sum_blue += kernelIntermediate[offset].blue;
+				sum_red -= summedAreaTable[y_end * imageIn->x + (x_start - 1)].red;
+				sum_green -= summedAreaTable[y_end * imageIn->x + (x_start - 1)].green;
+				sum_blue -= summedAreaTable[y_end * imageIn->x + (x_start - 1)].blue;
+			}
+			if (y_start > 0)
+			{
+				sum_red -= summedAreaTable[(y_start - 1) * imageIn->x + x_end].red;
+				sum_green -= summedAreaTable[(y_start - 1) * imageIn->x + x_end].green;
+				sum_blue -= summedAreaTable[(y_start - 1) * imageIn->x + x_end].blue;
+			}
+			if (x_start > 0 && y_start > 0)
+			{
+				sum_red += summedAreaTable[(y_start - 1) * imageIn->x + (x_start - 1)].red;
+				sum_green += summedAreaTable[(y_start - 1) * imageIn->x + (x_start - 1)].green;
+				sum_blue += summedAreaTable[(y_start - 1) * imageIn->x + (x_start - 1)].blue;
 			}
 
-			// Compute average and write to output image
-			int count = end_y - start_y + 1;
+			int count = (x_end - x_start + 1) * (y_end - y_start + 1);
 			int offset = y * imageIn->x + x;
-
 			imageOut->data[offset].red = sum_red / count;
 			imageOut->data[offset].green = sum_green / count;
 			imageOut->data[offset].blue = sum_blue / count;
 		}
 	}
 
-	free(kernelIntermediate);
+	free(summedAreaTable);
 }
 
 // Perform the final step, and return it as ppm.
