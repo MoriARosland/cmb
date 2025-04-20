@@ -27,6 +27,7 @@ AccurateImage *convertToAccurateImage(PPMImage *image)
 	AccurateImage *imageAccurate;
 	imageAccurate = (AccurateImage *)malloc(sizeof(AccurateImage));
 	imageAccurate->data = (AccuratePixel *)malloc(image->x * image->y * sizeof(AccuratePixel));
+
 	for (int i = 0; i < image->x * image->y; i++)
 	{
 		imageAccurate->data[i].red = (double)image->data[i].red;
@@ -133,78 +134,46 @@ void blurIteration(AccurateImage *imageOut, AccurateImage *imageIn, AccuratePixe
 	}
 }
 
-// Perform the final step, and return it as ppm.
-PPMImage *imageDifference(AccurateImage *imageInSmall, AccurateImage *imageInLarge)
+// Helper function to process a single color channel
+static inline unsigned char process_channel(double value)
 {
-	PPMImage *imageOut;
-	imageOut = (PPMImage *)malloc(sizeof(PPMImage));
-	imageOut->data = (PPMPixel *)malloc(imageInSmall->x * imageInSmall->y * sizeof(PPMPixel));
+	if (value >= 255.0)
+		return 255;
+	if (value < -1.0)
+	{
+		value = 257.0 + value;
+		return (value >= 255.0) ? 255 : (unsigned char)floor(value);
+	}
+	if (value < 0.0)
+		return 0;
+	return (unsigned char)floor(value);
+}
 
+PPMImage *imageDifference(const AccurateImage *imageInSmall, const AccurateImage *imageInLarge)
+{
+	// Allocate output image
+	PPMImage *imageOut = malloc(sizeof(PPMImage));
+
+	// Initialize dimensions
 	imageOut->x = imageInSmall->x;
 	imageOut->y = imageInSmall->y;
 
-	for (int i = 0; i < imageInSmall->x * imageInSmall->y; i++)
+	// Allocate pixel data
+	size_t pixelCount = imageOut->x * imageOut->y;
+	imageOut->data = malloc(pixelCount * sizeof(PPMPixel));
+
+// Check each pixel with OpenMP enabled
+#pragma omp parallel for
+	for (size_t i = 0; i < pixelCount; i++)
 	{
-		double value = (imageInLarge->data[i].red - imageInSmall->data[i].red);
-		if (value > 255)
-			imageOut->data[i].red = 255;
-		else if (value < -1.0)
-		{
-			value = 257.0 + value;
-			if (value > 255)
-				imageOut->data[i].red = 255;
-			else
-				imageOut->data[i].red = floor(value);
-		}
-		else if (value > -1.0 && value < 0.0)
-		{
-			imageOut->data[i].red = 0;
-		}
-		else
-		{
-			imageOut->data[i].red = floor(value);
-		}
-
-		value = (imageInLarge->data[i].green - imageInSmall->data[i].green);
-		if (value > 255)
-			imageOut->data[i].green = 255;
-		else if (value < -1.0)
-		{
-			value = 257.0 + value;
-			if (value > 255)
-				imageOut->data[i].green = 255;
-			else
-				imageOut->data[i].green = floor(value);
-		}
-		else if (value > -1.0 && value < 0.0)
-		{
-			imageOut->data[i].green = 0;
-		}
-		else
-		{
-			imageOut->data[i].green = floor(value);
-		}
-
-		value = (imageInLarge->data[i].blue - imageInSmall->data[i].blue);
-		if (value > 255)
-			imageOut->data[i].blue = 255;
-		else if (value < -1.0)
-		{
-			value = 257.0 + value;
-			if (value > 255)
-				imageOut->data[i].blue = 255;
-			else
-				imageOut->data[i].blue = floor(value);
-		}
-		else if (value > -1.0 && value < 0.0)
-		{
-			imageOut->data[i].blue = 0;
-		}
-		else
-		{
-			imageOut->data[i].blue = floor(value);
-		}
+		imageOut->data[i].red = process_channel(
+			imageInLarge->data[i].red - imageInSmall->data[i].red);
+		imageOut->data[i].green = process_channel(
+			imageInLarge->data[i].green - imageInSmall->data[i].green);
+		imageOut->data[i].blue = process_channel(
+			imageInLarge->data[i].blue - imageInSmall->data[i].blue);
 	}
+
 	return imageOut;
 }
 
