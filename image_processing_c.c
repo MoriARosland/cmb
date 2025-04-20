@@ -28,6 +28,7 @@ AccurateImage *convertToAccurateImage(PPMImage *image)
 	imageAccurate = (AccurateImage *)malloc(sizeof(AccurateImage));
 	imageAccurate->data = (AccuratePixel *)malloc(image->x * image->y * sizeof(AccuratePixel));
 
+#pragma omp parallel for
 	for (int i = 0; i < image->x * image->y; i++)
 	{
 		imageAccurate->data[i].red = (double)image->data[i].red;
