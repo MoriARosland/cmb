@@ -58,15 +58,8 @@ PPMImage *convertToPPPMImage(AccurateImage *imageIn)
 }
 
 /// Blurs all color channels of an image
-void blurIteration(AccurateImage *imageOut, AccurateImage *imageIn, int size)
+void blurIteration(AccurateImage *imageOut, AccurateImage *imageIn, AccuratePixel *summedAreaTable, int size)
 {
-	AccuratePixel *summedAreaTable = malloc(sizeof(AccuratePixel) * imageIn->x * imageIn->y);
-	if (summedAreaTable == NULL)
-	{
-		fprintf(stderr, "Error allocating memory for summedAreaTable\n");
-		exit(1);
-	}
-
 	// Compute summed area table
 	for (int y = 0; y < imageIn->y; y++)
 	{
@@ -138,8 +131,6 @@ void blurIteration(AccurateImage *imageOut, AccurateImage *imageIn, int size)
 			imageOut->data[offset].blue = sum_blue / count;
 		}
 	}
-
-	free(summedAreaTable);
 }
 
 // Perform the final step, and return it as ppm.
@@ -236,24 +227,26 @@ int main(int argc, char **argv)
 	AccurateImage *imageAccurate1_tiny = convertToAccurateImage(image);
 	AccurateImage *imageAccurate2_tiny = convertToAccurateImage(image);
 
+	AccuratePixel *summedAreaTable = malloc(sizeof(AccuratePixel) * image->x * image->y);
+
 	// Process the tiny case:
 	int size = 2;
-	blurIteration(imageAccurate2_tiny, imageAccurate1_tiny, size);
-	blurIteration(imageAccurate1_tiny, imageAccurate2_tiny, size);
-	blurIteration(imageAccurate2_tiny, imageAccurate1_tiny, size);
-	blurIteration(imageAccurate1_tiny, imageAccurate2_tiny, size);
-	blurIteration(imageAccurate2_tiny, imageAccurate1_tiny, size);
+	blurIteration(imageAccurate2_tiny, imageAccurate1_tiny, summedAreaTable, size);
+	blurIteration(imageAccurate1_tiny, imageAccurate2_tiny, summedAreaTable, size);
+	blurIteration(imageAccurate2_tiny, imageAccurate1_tiny, summedAreaTable, size);
+	blurIteration(imageAccurate1_tiny, imageAccurate2_tiny, summedAreaTable, size);
+	blurIteration(imageAccurate2_tiny, imageAccurate1_tiny, summedAreaTable, size);
 
 	AccurateImage *imageAccurate1_small = convertToAccurateImage(image);
 	AccurateImage *imageAccurate2_small = convertToAccurateImage(image);
 
 	// Process the small case:
 	size = 3;
-	blurIteration(imageAccurate2_small, imageAccurate1_small, size);
-	blurIteration(imageAccurate1_small, imageAccurate2_small, size);
-	blurIteration(imageAccurate2_small, imageAccurate1_small, size);
-	blurIteration(imageAccurate1_small, imageAccurate2_small, size);
-	blurIteration(imageAccurate2_small, imageAccurate1_small, size);
+	blurIteration(imageAccurate2_small, imageAccurate1_small, summedAreaTable, size);
+	blurIteration(imageAccurate1_small, imageAccurate2_small, summedAreaTable, size);
+	blurIteration(imageAccurate2_small, imageAccurate1_small, summedAreaTable, size);
+	blurIteration(imageAccurate1_small, imageAccurate2_small, summedAreaTable, size);
+	blurIteration(imageAccurate2_small, imageAccurate1_small, summedAreaTable, size);
 
 	// an intermediate step can be saved for debugging like this
 	//    writePPM("imageAccurate2_tiny.ppm", convertToPPPMImage(imageAccurate2_tiny));
@@ -263,21 +256,23 @@ int main(int argc, char **argv)
 
 	// Process the medium case:
 	size = 5;
-	blurIteration(imageAccurate2_medium, imageAccurate1_medium, size);
-	blurIteration(imageAccurate1_medium, imageAccurate2_medium, size);
-	blurIteration(imageAccurate2_medium, imageAccurate1_medium, size);
-	blurIteration(imageAccurate1_medium, imageAccurate2_medium, size);
-	blurIteration(imageAccurate2_medium, imageAccurate1_medium, size);
+	blurIteration(imageAccurate2_medium, imageAccurate1_medium, summedAreaTable, size);
+	blurIteration(imageAccurate1_medium, imageAccurate2_medium, summedAreaTable, size);
+	blurIteration(imageAccurate2_medium, imageAccurate1_medium, summedAreaTable, size);
+	blurIteration(imageAccurate1_medium, imageAccurate2_medium, summedAreaTable, size);
+	blurIteration(imageAccurate2_medium, imageAccurate1_medium, summedAreaTable, size);
 
 	AccurateImage *imageAccurate1_large = convertToAccurateImage(image);
 	AccurateImage *imageAccurate2_large = convertToAccurateImage(image);
 
 	size = 8;
-	blurIteration(imageAccurate2_large, imageAccurate1_large, size);
-	blurIteration(imageAccurate1_large, imageAccurate2_large, size);
-	blurIteration(imageAccurate2_large, imageAccurate1_large, size);
-	blurIteration(imageAccurate1_large, imageAccurate2_large, size);
-	blurIteration(imageAccurate2_large, imageAccurate1_large, size);
+	blurIteration(imageAccurate2_large, imageAccurate1_large, summedAreaTable, size);
+	blurIteration(imageAccurate1_large, imageAccurate2_large, summedAreaTable, size);
+	blurIteration(imageAccurate2_large, imageAccurate1_large, summedAreaTable, size);
+	blurIteration(imageAccurate1_large, imageAccurate2_large, summedAreaTable, size);
+	blurIteration(imageAccurate2_large, imageAccurate1_large, summedAreaTable, size);
+
+	free(summedAreaTable);
 
 	// calculate difference
 	PPMImage *final_tiny = imageDifference(imageAccurate2_tiny, imageAccurate2_small);
